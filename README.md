@@ -1,2 +1,2 @@
 # MRPy
-Multivariate Random Processes with Python
+[M]ultivariate [R]andom [P]rocesses with P[y]thon
