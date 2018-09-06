@@ -1,5 +1,5 @@
 # MRPy   
-### [M]ultivariate [R]andom [P]rocesses with P[y]thon
+## [M]ultivariate [R]andom [P]rocesses with P[y]thon   
 
 _Marcelo M. Rocha, PPGEC/UFRGS_ [(ORCID)](https://orcid.org/0000-0001-5640-1020)
 
