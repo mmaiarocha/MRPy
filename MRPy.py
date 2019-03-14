@@ -132,7 +132,7 @@ class MRPy(np.ndarray):
 #-------------        
             if (form.lower() == 'mrpy'):
                 
-                with gz.GzipFile(filename+'.gz', 'rb') as target:
+                with gz.GzipFile(filename+'.csv.gz', 'rb') as target:
                     
                     return MRPy(*pk.load(target))
          
@@ -160,11 +160,12 @@ class MRPy(np.ndarray):
             elif (form.lower() == 'mpu6050'):
     
                 with gz.open(filename+'.csv.gz', 'rb') as file:
+#               with    open(filename+'.csv',    'rb') as file:
     
                     data   =  pd.read_csv(file).values
                     ti     =  data[:,0] - data[0,0]
                     
-                    return MRPy.from_resampling(ti, 9.8065*data[:,1:]/16384)
+                    return MRPy.from_resampling(ti, data[:,1:]/16384)
                 
 #---------------    
             elif (form.lower() == 'cellphone'):
@@ -436,7 +437,7 @@ class MRPy(np.ndarray):
 
 #-----------------------------------------------------------------------------
     
-    def mov_average(self, n=3, win='rec'):
+    def mov_average(self, n=3, win='tri'):
         """
         Apply moving average with specified window.
     
@@ -448,25 +449,41 @@ class MRPy(np.ndarray):
 
         n =  np.int(n)               # truncate to integer
         n =  n - (1 - np.mod(n,2))   # n is odd or will be decreased by 1
-        m = (n -  1)//2              # window center
+        m = (n -  1)//2 + 1          # window center
         W =  np.ones(n)              # default rectangular window
 
         if (win.lower()   == 'rec'):
             pass
             
         elif (win.lower() == 'tri'):
-            W[:m+1] =  np.linspace(1/(m+1),  1., m+1)
-            W[ m: ] =  np.linspace(1.,  1/(m+1), m+1)
+            W[   :m] =  np.linspace(1/m, 1.,  m)
+            W[m-1: ] =  np.linspace(1.,  1/m, m)
         
         else:
             sys.error('Averaging window type not available!')
 
+        m  =  m - 1
         W  =  W/W.sum()
         X  =  MRPy.copy(self)
 
-        for kX in range(self.NX):        
-            for k in range(m, self.N-m):
-                X[kX,k] = np.sum(W*self[kX,(k-m):(k+m+1)])
+        for kX in range(self.NX):     
+            
+            for k in range(0, m):
+                k0 = m - k
+                W0 = W[k0:]/np.sum(W[k0:])
+#               print(k,W0,self[kX,:k+m+1])
+                X[kX,k] = np.sum(W0*self[kX,:k+m+1])
+
+            for k in range(m, self.N-m-1):
+#               if k==m: print(k,W,self[kX,k-m:k+m+1])
+                X[kX,k] = np.sum(W*self[kX,k-m:k+m+1])
+#               if k==self.N-m-1: print(k,W,self[kX,k-m:k+m+1])
+
+            for k in range(self.N-m-1, self.N):
+                k0 = m - k + self.N
+                W0 = W[:k0]/np.sum(W[:k0])
+#               print(k,W0,self[kX,k-m:])
+                X[kX,k] = np.sum(W0*self[kX,k-m:])
 
         return X
 
@@ -491,7 +508,7 @@ class MRPy(np.ndarray):
             Xw  =  np.fft.fft(X[kX,:])[0:X.M]
 
             if mode.lower() == 'pass':
-                Xw[(f <= band[0]) | (f > band[1])] = 0.
+                Xw[(f <  band[0]) | (f >= band[1])] = 0.
         
             elif mode.lower() == 'stop':
                 Xw[(f >= band[0]) & (f < band[1])] = 0. 
@@ -768,7 +785,7 @@ class MRPy(np.ndarray):
         
         for kX, row in enumerate(X):
 
-            Xp =  np.max(np.abs(row))     # initial amplitude value  
+            Xp =  np.max(row)             # initial amplitude value  
             fn =  f[np.argmax(Sx[kX,:])]  # initial natural frequency
             zt =  0.03                    # initial damping
             ph =  0.00                    # initial phase
@@ -798,7 +815,7 @@ class MRPy(np.ndarray):
         Estimates the one-side power spectrum of a MRP.
         """
 
-        Sx  =  np.empty((self.NX,self.M))
+        Sx  =  np.empty((self.NX, self.M))
 
         for kX in range(self.NX):
             
@@ -817,7 +834,7 @@ class MRPy(np.ndarray):
         """
 
         Tmax = (self.M - 1)/self.fs
-        Cx   =  np.empty((self.NX,self.M))
+        Cx   =  np.empty((self.NX, self.M))
 
         Sx, fs  =  self.periodogram()
 
@@ -987,9 +1004,12 @@ class MRPy(np.ndarray):
         sp0 = self.NX
         sp1 = 1
 
-        if (sp0 > 12):
-            sp0 = 5
-            sp1 = 4
+        if   (sp0 > 12):
+            sp0 = 4
+            sp1 = 5
+        elif (sp0 == 8):
+            sp0 = 4
+            sp1 = 2
         elif (sp0 > 6):
             sp0 = 4
             sp1 = 3
