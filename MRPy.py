@@ -622,6 +622,58 @@ class MRPy(np.ndarray):
 
 #-----------------------------------------------------------------------------
 
+    def sdof_fdiff(self, fn, zeta, U0=0., V0=0.):
+        """
+        Integrates the dynamic equilibrium differential equation by 
+        the central finite differences method.
+        The input is assumed to be an acceleration (force over mass),
+        otherwise the result must be divided by system mass to have
+        displacement unit.
+        System properties (frequency and damping) may be provided as 
+        scalars or lists. If they are scalars, same properties are used
+        for all series in the MRP. The same applies for initial conditions
+        U0 (displacement) and V0 (velocity)
+    
+        Parameters:  fn:   sdof natural frequency (Hz)
+                     zeta: sdof damping as ratio of critial  (nondim)
+                     U0:   initial position (default is all zero)
+                     V0:   initial velocity (default is all zero)
+        """
+        
+        if ~hasattr(fn, "__len__"):
+            fn   = fn*np.ones(self.NX)
+    
+        if ~hasattr(zeta, "__len__"):
+            zeta = zeta*np.ones(self.NX)
+        
+        if ~hasattr(U0, "__len__"):
+            U0   = U0*np.ones(self.NX)
+        
+        if ~hasattr(V0, "__len__"):
+            V0   = V0*np.ones(self.NX)
+
+        dt  =  1/self.fs
+        X   =  MRPy(np.empty((self.NX, self.N)), self.fs)
+
+        for kX, row in enumerate(self):
+
+            zt  =  zeta[kX]
+            wn  =  2*np.pi*fn[kX]   
+
+            b1 = (   zt*wn + 1/dt)/dt
+            b2 = (   zt*wn - 1/dt)/dt
+            b3 = (dt*wn*wn - 2/dt)/dt
+        
+            X[kX,0]  =  U0
+            X[kX,1]  =  U0 + V0*dt + row[0]*dt*dt/2
+            
+            for k in range(2,self.N): 
+                X[kX,k] = (row[k-1] + b2*X[kX,k-2] - b3*X[kX,k-1])/b1
+    
+        return X
+
+#-----------------------------------------------------------------------------
+
     def sdof_Duhamel(self, fn, zeta, U0=0., V0=0.):
         """
         Integrates the dynamic equilibrium differential equation by Duhamel.
