@@ -345,7 +345,7 @@ class MRPy(np.ndarray):
 
     def superpose(self, weight=1.):
         """
-        Add up all series in MRP weighted by 'weight'.
+        Add up all series in MRPy weighted by 'weight'.
         
         Parameters: weight: scalar or list with weights for summation.
         """
@@ -365,7 +365,7 @@ class MRPy(np.ndarray):
 
     def double(self):
         """
-        Double MRP duration by filling with mean values.
+        Double MRPy duration by filling with mean values.
         """
 
         Xm  = self.mean(axis=1) 
@@ -682,7 +682,7 @@ class MRPy(np.ndarray):
     def sdof_Fourier(self, fn, zeta):
         """
         Integrates the dynamic equilibrium differential equation by Fourier.
-        The input MRP is assumed to be an acceleration (force over mass),
+        The input MRPy is assumed to be an acceleration (force over mass),
         otherwise the result must be divided by system mass to have
         displacement unit.
         System properties (frequency and damping) may be provided as 
@@ -730,7 +730,7 @@ class MRPy(np.ndarray):
                      thr: threshold level that defines the reference
                           upcrossing level, given as a multiple of the 
                           standard deviation of the reference MRP.
-                     ref: row of MRP to be used as reference series.
+                     ref: row of MRPy to be used as reference series.
                           The other series will be splitted at the same
                           crossing points, what implies phase consistency.
         """
@@ -762,7 +762,7 @@ class MRPy(np.ndarray):
     def fit_decay(self):
         """
         Fit the theoretical free decay function of a sdof dynamic system 
-        to the provided MRP. The MRP mean value is discarded. The fitted
+        to the provided MRP. The MRPy mean value is discarded. The fitted
         parameters are output as a tuple P = (Xp, fn, zt, ph), where
         Xp is the amplitude, fn is the fundamental (undamped) frequency,
         zt is the damping as the ratio of critical, and ph is the phase
@@ -811,7 +811,7 @@ class MRPy(np.ndarray):
         return MRPy(X, fs), P
 
 #=============================================================================
-# 4. MRP properties (as non-MRP outputs)
+# 4. MRPy properties (as non-MRPy outputs)
 #=============================================================================
 
     def periodogram(self):
@@ -904,7 +904,7 @@ class MRPy(np.ndarray):
     
     def Davenport(self, T=-1.):
         """
-        Peak factor of a MRP by Davenport's formula.
+        Peak factor of a MRPy by Davenport's formula.
         
         Parameters:  T: observation time for estimating peak factor.
                         The default value is -1, that means the total
@@ -939,7 +939,7 @@ class MRPy(np.ndarray):
     
     def splitmax(self, T=-1.):
         """
-        Peak factor of a MRP by the "splitmax" method.
+        Peak factor of a MRPy by the "splitmax" method.
         
         Parameters:  T: observation time for estimating peak factor.
                         The default value is -1, that means the total
