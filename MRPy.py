@@ -123,7 +123,7 @@ class MRPy(np.ndarray):
                                'mrpy'      - default gzip pickle loading
                                'excel'     - excel generated with pandas
                                'columns'   - t, X1, [X2, X3 ...]
-                               'cellphone' - Ax, Ay, Az, dt
+                               'invh     ' - csv file by iNVH app
                                'mpu6050'   - gzip excel 6 axis data
         """
 
@@ -159,24 +159,28 @@ class MRPy(np.ndarray):
 #---------------    
             elif (form.lower() == 'mpu6050'):
     
-                with gz.open(filename+'.csv.gz', 'rb') as file:
-#               with    open(filename+'.csv',    'rb') as file:
-    
-                    data   =  pd.read_csv(file).values
-                    ti     =  data[:,0] - data[0,0]
+                with gz.open(filename+'.csv.gz', 'rb') as target:
+                
+                    data =  np.genfromtxt(target, 
+                                          delimiter=',', 
+                                          skip_header=1)
+                    
+                    ti   =  data[:,0] - data[0,0]
                     
                     return MRPy.from_resampling(ti, data[:,1:]/16384)
                 
 #---------------    
-            elif (form.lower() == 'cellphone'):
+            elif (form.lower() == 'invh'):
                 
-                with open(filename+'.txt', 'rb') as target:
+                with open(filename+'.csv', 'rb') as target:
                 
-                    data = np.genfromtxt(target, delimiter=' ')
-                    ti   = data[:,3]
-                    ti   = np.cumsum(ti)/1000.
+                    data =  np.genfromtxt(target, 
+                                          delimiter=',',
+                                          skip_header=1)
                     
-                    return MRPy.from_resampling(ti, data[:,:3])
+                    ti   =  data[:,0]
+                    
+                    return MRPy.from_resampling(ti, data[:,1:-1])
 
 #--------------- 
             else:
