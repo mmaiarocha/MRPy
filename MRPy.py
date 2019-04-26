@@ -1008,9 +1008,6 @@ class MRPy(np.ndarray):
 
         for kX in range(self.NX):
             
-            Fx  =  np.fft.fft(self[kX,:] - self[kX,:].mean())
-            Sxk =  np.real(Fx*Fx.conj())*2/self.N/self.fs
-            
             Sxk =  np.hstack((Sx[kX,:], Sx[kX,-2:0:-1]))
             Cxk =  np.fft.ifft(Sxk)*fs/2
             
