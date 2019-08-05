@@ -157,18 +157,6 @@ class MRPy(np.ndarray):
                     ti   = data[:,0]
                     
                     return MRPy.from_resampling(ti, data[:,1:])
-    
-#---------------    
-            elif (form.lower() == 'mpu6050'):
-    
-                with gz.open(filename+'.csv.gz', 'rb') as target:
-                
-                    data =  np.genfromtxt(target, 
-                                          delimiter=',')
-                    
-                    ti   =  data[:,0] - data[0,0]
-                    
-                    return MRPy.from_resampling(ti, data[:,1:]/16384)
 
 #---------------    
             elif (form.lower() == 'invh'):
@@ -182,6 +170,18 @@ class MRPy(np.ndarray):
                     ti   =  data[:,0]
                     
                     return MRPy.from_resampling(ti, data[:,1:-1])
+    
+#---------------    
+            elif (form.lower() == 'mpu6050'):
+    
+                with gz.open(filename+'.csv.gz', 'rb') as target:
+                
+                    data =  np.genfromtxt(target, 
+                                          delimiter=',')
+                    
+                    ti   =  data[:,0] - data[0,0]
+                    
+                    return MRPy.from_resampling(ti, data[:,1:]/16384)
 
 #--------------- 
             else:
@@ -1148,6 +1148,16 @@ class MRPy(np.ndarray):
 #=============================================================================
 # 6. Utilities
 #=============================================================================
+
+    def attributes(self):
+        
+        s1 =  ' fs = {0:.1f}Hz\n Td = {1:.1f}s\n'
+        s2 =  ' NX = {0}\n N  = {1}\n M  = {2}\n'   
+        
+        print(s1.format(self.fs, self.Td))
+        print(s2.format(self.NX, self.N, self.M))
+
+#-----------------------------------------------------------------------------
 
     def t_axis(self):        
         return np.linspace(0, self.Td, self.N)
