@@ -74,45 +74,7 @@ class MRPy(np.ndarray):
 #=============================================================================
 # 2. Class constructors from other sources
 #=============================================================================
- 
-    def from_resampling(ti, Xi):
-        """
-        Resampling irregular time step to fixed time step. The last
-        element of ti is taken as total series duration. Series length
-        is kept unchanged.
- 
-        Parameters:  ti:    irregular time where samples are avaible
-                     Xi:    time series samples, taken at ti
-        """
 
-        sh =  Xi.shape
-        
-        if (len(sh) == 1): 
-            Xi = np.reshape(Xi,(1,sh[0]))
-			
-        elif (sh[0] > sh[1]):
-            Xi = Xi.T
-
-        sh =  Xi.shape
-        NX =  sh[0]
-        N  =  sh[1]                     # series length kept unchanged
-
-        t0 =  ti[0]
-        t1 =  ti[-1]
-
-        fs =  N/(t1 - t0)               # average sampling rate
-        
-        t  =  np.linspace(t0, t1, N)
-        X  =  np.empty((NX,N))
-        
-        for k in range(NX):
-            resX   =  interp1d(ti, Xi[k,:], kind='quadratic')
-            X[k,:] =  resX(t)
-
-        return MRPy(X, fs)
-
-#-----------------------------------------------------------------------------
-    
     def from_file(filename, form='mrpy'):
         """
         Load time series from file.
@@ -144,7 +106,7 @@ class MRPy(np.ndarray):
                     data =  pd.read_excel(target, sheet_name='MRPy')
                     ti   =  np.array(data.index, dtype=float)
                     
-                    return MRPy.from_resampling(ti, data.values)
+                    return MRPy.resampling(ti, data.values)
                 
 #--------------- 
             elif (form.lower() == 'columns'):
@@ -156,7 +118,7 @@ class MRPy(np.ndarray):
                     
                     ti   = data[:,0]
                     
-                    return MRPy.from_resampling(ti, data[:,1:])
+                    return MRPy.resampling(ti, data[:,1:])
 
 #---------------    
             elif (form.lower() == 'invh'):
@@ -169,7 +131,7 @@ class MRPy(np.ndarray):
                     
                     ti   =  data[:,0]
                     
-                    return MRPy.from_resampling(ti, data[:,1:-1])
+                    return MRPy.resampling(ti, data[:,1:-1])
     
 #---------------    
             elif (form.lower() == 'mpu6050'):
@@ -181,7 +143,7 @@ class MRPy(np.ndarray):
                     
                     ti   =  data[:,0] - data[0,0]
                     
-                    return MRPy.from_resampling(ti, data[:,1:]/16384)
+                    return MRPy.resampling(ti, data[:,1:]/16384)
 
 #--------------- 
             else:
@@ -203,7 +165,7 @@ class MRPy(np.ndarray):
                           the length of simulation will not be as expected!)
                           The largest dimension of Sx is assumed to be the
                           frequency axis.
-                     fs:  sampling frequency
+                     fs:  sampling frequency in Hz
         """
 
         sh  =  Sx.shape
@@ -250,32 +212,8 @@ class MRPy(np.ndarray):
                            will be approximately 2Tmax.
         """
 
-        sh  =  Cx.shape
-
-        if (len(sh) == 1): 
-            Cx = np.reshape(Cx,(1,sh[0]))
-        else:
-            if (sh[0] > sh[1]):
-                Cx = Cx.T
-
-        sh  =  Cx.shape
-        NX  =  sh[0]
-        M0  =  sh[1]
-        M   =  M0 - (np.mod(M0,2) == 0)     # ensure M is odd
-
-        Cx  =  Cx[:, 0:M]
+        Sx, fs = MRPy.Cx2Sx(Cx, Tmax)
         
-        err =  M/M0             
-        fs  = (M - 1)/(err*Tmax)            # eventually corrects for Tmax
-        
-        Sx  =  np.empty((NX, M))
-
-        for k in range(NX): 
-            
-            C       =  np.hstack((Cx[k,:], Cx[k,-2:0:-1]))
-            C       =  np.fft.fft(C)*2/fs
-            Sx[k,:] =  np.real(C[0:M])
-
         return MRPy.from_periodogram(Sx, fs)
 
 #-----------------------------------------------------------------------------
@@ -357,7 +295,6 @@ class MRPy(np.ndarray):
         X   = np.zeros((1, self.N))
 
         for kX, row in enumerate(self):  
-            
             X[0,:] += weight[kX]*row
 
         return MRPy(X, self.fs)
@@ -862,29 +799,7 @@ class MRPy(np.ndarray):
 # 4. Class constructors from conceptual properties
 #=============================================================================
 
-    def check_fs(N, fs, Td):
-        """
-        Verifies if either fs or Td are given, and returns 
-        the standard property fs
-        """
-            
-        if (np.mod(N, 2) != 0):              # enforce N to be even
-            N   =  N - 1
-
-        if ((fs != None) & (Td == None)):    # if fs is available...
-            pass
-
-        elif ((fs == None) & (Td != None)):  # if Td is available
-            fs = N/Td
-
-        else: 
-            sys.exit('Either fs or Td must be specified!')
-        
-        return fs, N/fs
-        
-#-----------------------------------------------------------------------------
-
-    def zero_process(NX=1, N=1000, fs=None, Td=None):
+    def zeros(NX=1, N=1024, fs=None, Td=None):
         """
         Add up all series in MRPy weighted by 'weight'.
         
@@ -900,7 +815,7 @@ class MRPy(np.ndarray):
 
 #-----------------------------------------------------------------------------
 
-    def Dirac(NX=1, N=1000, t0=0.0, fs=None, Td=None):
+    def Dirac(NX=1, N=1024, t0=0.0, fs=None, Td=None):
         """
         Add up all series in MRPy weighted by 'weight'.
         
@@ -920,7 +835,7 @@ class MRPy(np.ndarray):
 
 #-----------------------------------------------------------------------------
 
-    def Heaviside(NX=1, N=1000, t0=0.0, fs=None, Td=None):
+    def Heaviside(NX=1, N=1024, t0=0.0, fs=None, Td=None):
         """
         Add up all series in MRPy weighted by 'weight'.
         
@@ -940,7 +855,7 @@ class MRPy(np.ndarray):
 
 #-----------------------------------------------------------------------------
 
-    def white_noise(NX=1, N=1000, fs=None, Td=None):
+    def white_noise(NX=1, N=1024, fs=None, Td=None):
         """
         Add up all series in MRPy weighted by 'weight'.
         
@@ -958,7 +873,7 @@ class MRPy(np.ndarray):
 
 #-----------------------------------------------------------------------------
 
-    def pink_noise(NX=1, N=1000, fs=None, Td=None):
+    def pink_noise(NX=1, N=1024, fs=None, Td=None):
         """
         Add up all series in MRPy weighted by 'weight'.
         
@@ -1152,7 +1067,7 @@ class MRPy(np.ndarray):
     def attributes(self):
         
         s1 =  ' fs = {0:.1f}Hz\n Td = {1:.1f}s\n'
-        s2 =  ' NX = {0}\n N  = {1}\n M  = {2}\n'   
+        s2 =  ' NX = {0}\n N  = {1}\n M  = {2}'   
         
         print(s1.format(self.fs, self.Td))
         print(s2.format(self.NX, self.N, self.M))
@@ -1342,6 +1257,153 @@ class MRPy(np.ndarray):
             sys.exit('Data formatting not available!')
             
         return None
+
+#=============================================================================
+# 7. Helpers
+#=============================================================================
+ 
+    def resampling(ti, Xi):
+        """
+        Resampling irregular time step to fixed time step. The last
+        element of ti is taken as total series duration. Series length
+        is kept unchanged.
+ 
+        Parameters:  ti:    irregular time where samples are avaible
+                     Xi:    time series samples, taken at ti
+        """
+
+        sh =  Xi.shape
+        
+        if (len(sh) == 1): 
+            Xi = np.reshape(Xi,(1,sh[0]))
+			
+        elif (sh[0] > sh[1]):
+            Xi = Xi.T
+
+        sh =  Xi.shape
+        NX =  sh[0]
+        N  =  sh[1]                     # series length kept unchanged
+
+        t0 =  ti[0]
+        t1 =  ti[-1]
+
+        fs =  N/(t1 - t0)               # average sampling rate
+        
+        t  =  np.linspace(t0, t1, N)
+        X  =  np.empty((NX,N))
+        
+        for k in range(NX):
+            resX   =  interp1d(ti, Xi[k,:], kind='linear')
+            X[k,:] =  resX(t)
+
+        return MRPy(X, fs)
+
+#-----------------------------------------------------------------------------
+
+    def check_fs(N, fs, Td):
+        """
+        Verifies if either fs or Td are given, and returns 
+        both properties verifyed
+        """
+            
+        if (np.mod(N, 2) != 0):              # enforce N to be even
+            N   =  N - 1
+
+        if ((fs != None) & (Td == None)):    # if fs is available...
+            pass
+
+        elif ((fs == None) & (Td != None)):  # if Td is available
+            fs = N/Td
+
+        else: 
+            sys.exit('Either fs or Td must be specified!')
+        
+        return fs, N/fs
+        
+#-----------------------------------------------------------------------------
+
+    def Cx2Sx(Cx, Tmax):
+        """
+        Returns the spectral density corresponding to a given
+        autocovariance function.
+ 
+        Parameters:  Cx:   autocovariances as ndarray (must have odd
+                           length, otherwise it will be truncated by 1 and
+                           the length of simulation will not be as expected!)
+                           The largest dimension of Cx is assumed to be the
+                           time gap axis.
+                     Tmax: largest time gap, associated to the last element
+                           in array Cx. Defines process duration, which 
+                           will be approximately 2Tmax.
+        """
+
+        sh  =  Cx.shape
+
+        if (len(sh) == 1): 
+            Cx = np.reshape(Cx,(1,sh[0]))
+        else:
+            if (sh[0] > sh[1]):
+                Cx = Cx.T
+
+        sh  =  Cx.shape
+        NX  =  sh[0]
+        M0  =  sh[1]
+        M   =  M0 - (np.mod(M0,2) == 0)     # ensure M is odd
+
+        Cx  =  Cx[:, 0:M]
+        
+        err =  M/M0             
+        fs  = (M - 1)/(err*Tmax)            # eventually corrects for Tmax
+        
+        Sx  =  np.empty((NX, M))
+
+        for k in range(NX): 
+            
+            C       =  np.hstack((Cx[k,:], Cx[k,-2:0:-1]))
+            C       =  np.fft.fft(C)*2/fs
+            Sx[k,:] =  np.real(C[0:M])
+
+        return Sx, fs
+
+#-----------------------------------------------------------------------------
+
+    def Sx2Cx(Sx, fs):
+        """
+        Returns the autocovariance corresponding to a given
+        spectral density.
+ 
+        Parameters:  Sx:  spectral density as ndarray (must have odd
+                          length, otherwise it will be truncated by 1 and
+                          the length of simulation will not be as expected!)
+                          The largest dimension of Sx is assumed to be the
+                          frequency axis.
+                     fs:  sampling frequency in Hz
+        """
+        
+        sh  =  Sx.shape
+
+        if (len(sh) == 1): 
+            Sx = np.reshape(Sx,(1,sh[0]))
+        else:
+            if (sh[0] > sh[1]):
+                Sx = Sx.T
+
+        sh  =  Sx.shape
+        NX  =  sh[0]
+        M0  =  sh[1]
+        M   =  M0 - (np.mod(M0,2) == 0)     # ensure M is odd
+
+        Tmax = (M - 1)/fs
+        Cx   =  np.empty((NX, M))
+
+        for kX in range(NX):
+            
+            Sxk =  np.hstack((Sx[kX,:], Sx[kX,-2:0:-1]))
+            Cxk =  np.fft.ifft(Sxk)*fs/2
+            
+            Cx[kX,:] =  np.real(Cxk[:M])
+
+        return Cx, Tmax
 
 #=============================================================================
 #=============================================================================
