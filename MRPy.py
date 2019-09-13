@@ -218,21 +218,18 @@ class MRPy(np.ndarray):
 
 #-----------------------------------------------------------------------------
 
-    def from_pseudo(Sx, Tmax, T, zeta=0.05):  # NOT READY!!!
+    def from_pseudo(Sa, Tmax, T, zeta=0.05):  # NOT READY!!!
         """
-        Simulate RPs from a given pseudo spectra, which are the
-        peak response amplitude of a single degree of freedom system, as a
-        function of system natural period of vibration, subjected to a
-        certain type of excitation. The usual application is for the
-        pseudo acceleration spectra of seismic excitation. 
+        Simulate ground acceleration records from a given pseudo acceleration 
+        spectra.  
  
-        Parameters:  Sx:   pseudo spectras as ndarray (must have odd
-                           length, otherwise it will be truncated by 1 and
+        Parameters:  Sa:   acceleration pseudo spectra as ndarray (must have 
+                           odd length, otherwise it will be truncated by 1 and
                            the length of simulation will not be as expected!)
-                           The largest dimension of Sx is assumed to be the
+                           The largest dimension of Sa is assumed to be the
                            period axis.
                      Tmax: largest period, associated to the last element
-                           in array Sx. Defines process duration, which
+                           in array Sa. Defines process duration, which
                            will be approximately 2Tmax. 
                      T:    tuple (T1, T2, T0) defining envelope timing, where
                            T1 is the end of attack time, T2 is the end of
@@ -242,15 +239,15 @@ class MRPy(np.ndarray):
                            provided or default value of 5% is assumed.
         """
 
-        sh  =  Sx.shape
+        sh  =  Sa.shape
 
         if (len(sh) == 1): 
-            Sx = np.reshape(Sx,(1,sh[0]))
+            Sa = np.reshape(Sa,(1,sh[0]))
         else:
             if (sh[0] > sh[1]):
-                Sx = Sx.T
+                Sa = Sa.T
 
-        sh  =  Sx.shape
+        sh  =  Sa.shape
         NX  =  sh[0]
         M0  =  sh[1]
         M   =  M0 - (np.mod(M0,2) == 0)     # ensure M is odd
@@ -258,10 +255,23 @@ class MRPy(np.ndarray):
 
         err =  M/M0             
         fs  = (M - 1)/(err*Tmax)            # eventually corrects for Tmax
+        f   =  np.linspace(0, fs/2, M)
+        tau =  np.linspace(0, Tmax, M)
         
-        X   =  MRPy(np.random.randn(NX, N), fs)
+        fi      =  np.zeros(M)
+        fi[1:]  =  1/tau[:0:-1]  
+        
+        X   =  np.empty((NX,N))
+        
+        for k in range(NX):
 
-        return X.Kanai().envelope(T)
+            Sxi     = np.zeros(M)                        
+            Sxi[1:] = Sa[k,1:]
+            fSx = interp1d(fi, Sxi, kind='quadratic') 
+            
+            X[k]  = MRPy.from_periodogram(fSx(f), fs)
+            X[k] *= Sa.max()/X[k].max()        
+        return MRPy(X, fs).Kanai().envelope(T)
 
 #=============================================================================
 # 3. Class constructors by modification
@@ -972,7 +982,8 @@ class MRPy(np.ndarray):
                     X    = self.sdof_Duhamel(1/T[k], zeta)
                     umax = np.abs(X).max(axis=1)
                     
-                    if ~np.any(np.isnan(umax)): Sx[:,k] = umax
+                    if ~np.any(np.isnan(umax)): 
+                        Sx[:,k] = umax
         
         return Sx, Tmax
 
@@ -1202,7 +1213,7 @@ class MRPy(np.ndarray):
     def plot_pseudo(self, fig=0, figsize=(12, 8), axis_T=None):
         
         plt.figure(fig, figsize=figsize)
-        plt.suptitle('Pseudo Spectrum', fontsize=14)
+        plt.suptitle('Displacement Response Spectrum', fontsize=14)
         
         Sx, Tmax = self.pseudo()
         
