@@ -4,3 +4,5 @@
 _Marcelo M. Rocha, PPGEC/UFRGS_ [(ORCID)](https://orcid.org/0000-0001-5640-1020)
 
 Please, click to access a... [Jupyter Notebook Viewer for MRPy](https://nbviewer.jupyter.org/github/mmaiarocha/MRPy/blob/master/MRPy_Notebook.ipynb?flush_cache=true)
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mmaiarocha/MRPy/master)
