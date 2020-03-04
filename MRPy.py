@@ -1166,7 +1166,7 @@ class MRPy(np.ndarray):
         f  = self.f_axis()
 
         if (axis_f == None): 
-            axis_f = [0, self.fs/2, 0, Sx.max()]
+            axis_f = [0, self.fs/2, 0, 1.2*Sx.max()]
 
         sp0, sp1 = self.subplot_shape()
         lines    = []
@@ -1196,7 +1196,7 @@ class MRPy(np.ndarray):
         T  = self.T_axis()
 
         if (axis_T == None): 
-            axis_T = [0, Tmax, -1, 1]
+            axis_T = [0, Tmax, -1.2, 1.2]
 
         sp0, sp1 = self.subplot_shape()
         lines    = []
@@ -1226,7 +1226,7 @@ class MRPy(np.ndarray):
         T  = self.T_axis()
 
         if (axis_T == None): 
-            axis_T = [0, Tmax, 0, Sx.max()]
+            axis_T = [0, Tmax, 0, 1.2*Sx.max()]
 
         sp0, sp1 = self.subplot_shape()
         lines    = []
