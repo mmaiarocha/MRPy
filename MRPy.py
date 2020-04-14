@@ -23,40 +23,41 @@ class MRPy(np.ndarray):
     def __new__(cls, np_array, fs=None, Td=None):
 
         X  =  np.asarray(np_array).view(cls)
+
+        if (X.size == 0):
+            sys.exit('Empty array not allowed for new objects!')
+        
         sh =  X.shape
         
         if (len(sh) == 1): 
             X  = np.reshape(X,(1,sh[0]))
-			
         elif (sh[0] > sh[1]):
             X = X.T
             
         sh   =  X.shape
         X.NX =  sh[0]
         X.N  =  sh[1]
-        err  =  1.0
+        
+        if (X.N < 2):
+            sys.exit('Come on!!! Start with at least 2 elements!')
 
-        if (X.N == 0):
-            sys.exit('MRPy class cannot deal with empty arrays!')
-            
-        if (np.mod(X.N, 2) != 0):         # enforce N to be even
-            X   =  X[:,:-1]
-            err = (X.N - 1.0)/X.N         # correction over Td
+        err =  1.0
+        if (np.mod(X.N, 2) != 0):         # enforce N to be even...
+            X   =  X[:,:-1]               # ... odd element is discarded!!!
+            err = (X.N - 1)/X.N           # correction over Td
             X.N =  X.N - 1
-            
-        if ((X.N > 0) & (fs != None)):    # if fs is available...
+
+        if (fs != None):                  # if fs is prescribed...
             X.fs = np.float(fs)
-            X.Td = X.N/X.fs               # ... any Td will be disregarded
-            X.M  = X.N//2 + 1
+            X.Td = X.N/X.fs               # ... Td is calculated
 
-        elif ((X.N > 0) & (Td != None)):  # if Td is available
+        elif (Td != None):                # but if Td is prescribed...
             X.Td = err*np.float(Td)
-            X.fs = X.N/X.Td
-            X.M  = X.N//2 + 1
+            X.fs = X.N/X.Td               # ... fs is calculated
 
-        elif (X.N > 0):
-            sys.exit('Neither fs or Td has been specified!')
+        else: sys.exit('Either fs or Td must be provided!')
 
+        X.M  = X.N//2 + 1
         return X
 
 #-----------------------------------------------------------------------------
@@ -97,7 +98,7 @@ class MRPy(np.ndarray):
                 with gz.GzipFile(filename+'.csv.gz', 'rb') as target:
                     
                     return MRPy(*pk.load(target))
-         
+                
 #---------------     
             elif (form.lower() == 'excel'):
                 
@@ -1081,7 +1082,7 @@ class MRPy(np.ndarray):
 # 6. Utilities
 #=============================================================================
 
-    def attributes(self):
+    def printAttrib(self):
         
         s1 =  ' fs = {0:.1f}Hz\n Td = {1:.1f}s\n'
         s2 =  ' NX = {0}\n N  = {1}\n M  = {2}'   
