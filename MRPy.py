@@ -78,7 +78,8 @@ class MRPy(np.ndarray):
 
     def from_file(filename, form='mrpy'):
         """
-        Load time series from file.
+        Load time series from file. Please contact the author for 
+        including other types of datafile.
  
         Parameters:  filename: file to be loaded, including path,
                                whithout file extension
@@ -94,36 +95,32 @@ class MRPy(np.ndarray):
             
 #-------------        
             if (form.lower() == 'mrpy'):
-                
-                with gz.GzipFile(filename+'.csv.gz', 'rb') as target:
-                    
+                with gz.GzipFile(filename+'.csv.gz', 'rb') as target:                 
                     return MRPy(*pk.load(target))
-                
+
 #---------------     
             elif (form.lower() == 'excel'):
-                
                 with open(filename+'.xlsx', 'rb') as target:
                     
-                    data =  pd.read_excel(target, sheet_name='MRPy')
-                    ti   =  np.array(data.index, dtype=float)
+                    data =  pd.read_excel(target, 
+                                          index_col=0, 
+                                          sheet_name='MRPy')
                     
+                    ti   =  np.array(data.index, dtype=float)
                     return MRPy.resampling(ti, data.values)
-                
+
 #--------------- 
             elif (form.lower() == 'columns'):
-                
                 with open(filename+'.txt', 'rb') as target:
     
                     data = np.genfromtxt(target, 
                                          delimiter='\t')
-                    
+        
                     ti   = data[:,0]
-                    
                     return MRPy.resampling(ti, data[:,1:])
 
 #---------------    
             elif (form.lower() == 'invh'):
-                
                 with open(filename+'.csv', 'rb') as target:
                 
                     data =  np.genfromtxt(target, 
@@ -131,19 +128,16 @@ class MRPy(np.ndarray):
                                           skip_header=1)
                     
                     ti   =  data[:,0]
-                    
                     return MRPy.resampling(ti, data[:,1:-1])
     
 #---------------    
             elif (form.lower() == 'mpu6050'):
-    
                 with gz.open(filename+'.csv.gz', 'rb') as target:
                 
                     data =  np.genfromtxt(target, 
                                           delimiter=',')
                     
                     ti   =  data[:,0] - data[0,0]
-                    
                     return MRPy.resampling(ti, data[:,1:]/16384)
 
 #--------------- 
@@ -173,9 +167,8 @@ class MRPy(np.ndarray):
 
         if (len(sh) == 1): 
             Sx = np.reshape(Sx,(1,sh[0]))
-        else:
-            if (sh[0] > sh[1]):
-                Sx = Sx.T
+        elif (sh[0] > sh[1]):
+            Sx = Sx.T
 
         sh  =  Sx.shape
         NX  =  sh[0]
@@ -188,7 +181,8 @@ class MRPy(np.ndarray):
         
         for k in range(NX):
 
-            phi =  2*np.pi*np.random.rand(M);   phi[0] = 0.
+            phi =  2*np.pi*np.random.rand(M);
+            phi[0] = 0.
 
             Pw  =  np.sqrt(Sx[k,:]) * (np.cos(phi) + 1j*np.sin(phi))
             Pw  =  np.hstack((Pw, np.conj(Pw[-2:0:-1])))
@@ -214,7 +208,6 @@ class MRPy(np.ndarray):
         """
 
         Sx, fs = MRPy.Cx2Sx(Cx, Tmax)
-        
         return MRPy.from_periodogram(Sx, fs)
 
 #-----------------------------------------------------------------------------
@@ -271,7 +264,8 @@ class MRPy(np.ndarray):
             fSx = interp1d(fi, Sxi, kind='quadratic') 
             
             X[k]  = MRPy.from_periodogram(fSx(f), fs)
-            X[k] *= Sa.max()/X[k].max()        
+            X[k] *= Sa.max()/X[k].max()
+
         return MRPy(X, fs).Kanai().envelope(T)
 
 #=============================================================================
@@ -295,13 +289,17 @@ class MRPy(np.ndarray):
 
     def superpose(self, weight=1.):
         """
-        Add up all series in MRPy weighted by 'weight'.
-        
-        Parameters: weight: scalar or list with weights for summation.
+        Add up all series in MRPy weighted by 'weight', which is a
+        scalar or list with weights for summation. This method can be
+        used, for instance, for combining modal responses according to 
+        modal shape coordinate at a given structural node.
         """
 
         if ~hasattr(weight, "__len__"):
             weight = weight*np.ones(self.NX)
+            
+        elif (len(weight) != self.NX):
+            sys.exit('Weight length must equal number of processes!')
 
         X   = np.zeros((1, self.N))
 
@@ -354,11 +352,10 @@ class MRPy(np.ndarray):
             i1  = int(segm[1])
         
         else: 
-            sys.exit('Segment definition is unknown!')
+            sys.exit('Segment definition code is unknown!')
             return None
 
         i1  = i1 - np.mod(i1-i0, 2)      # ensure even length
-
         if (i0 < 0     ): i0 = 0         # do not go over boundaries
         if (i1 > self.N): i1 = self.N
 
@@ -369,6 +366,7 @@ class MRPy(np.ndarray):
     def envelope(self, T):
         """
         Apply an amplitude envelope with exponential attack e decay.
+        This type of envelope is used for simulation of seismic acceleration.
     
         Parameters:  T: tuple (T1, T2, T0) defining envelope timing, where
                         T1 is the end of attack time, T2 is the end of
@@ -397,7 +395,7 @@ class MRPy(np.ndarray):
         Parameters:  n:   window width (truncated to be odd integer)
                      win: window type. Available windows are:
                           'rec': rectangular
-                          'tri': triangular
+                          'tri': triangular (default)
         """
 
         n =  np.int(n)               # truncate to integer
@@ -452,15 +450,17 @@ class MRPy(np.ndarray):
         X   =  self.double()
         f   =  X.f_axis()
         
+        b0, b1 = MRPy.check_band(self.fx, band)
+
         for kX in range(X.NX):
             
             Xw  =  np.fft.fft(X[kX,:])[0:X.M]
 
             if mode.lower() == 'pass':
-                Xw[(f <  band[0]) | (f >= band[1])] = 0.
+                Xw[(f <  b0) | (f >= b1)] = 0.
         
             elif mode.lower() == 'stop':
-                Xw[(f >= band[0]) & (f < band[1])] = 0. 
+                Xw[(f >= b0) & (f < b1)] = 0. 
 
             else:
                 warn('Filter type not available!')
@@ -475,7 +475,8 @@ class MRPy(np.ndarray):
     def Kanai(self, H1=(4.84, 0.60), H2=(0.97, 0.60)):
         """
         Apply Kanai/Tajimi filtering, with low frequency range attenuation 
-        to avoid integration drifting.
+        to avoid integration drifting. This filter is used for simulation
+        of seismic acceleration.
  
         Parameters:  H1: tuple (f1, zeta1) for first filter part,
                          where default values represent firm soil condition.
@@ -704,6 +705,8 @@ class MRPy(np.ndarray):
 
     def random_decrement(self, div=4, thr=1.0, ref=0):
         """
+        MATHEUS CARINI HAS FOUND A PROBLEM HERE! MUST BE REVISED!!!
+        
         Estimate the free decay response of a dynamic system from the
         response to a wide band excitation by the random decrement (RD) 
         method. 
@@ -808,8 +811,7 @@ class MRPy(np.ndarray):
                     Td: processes duration (second)
         """
 
-        fs, Td = MRPy.check_fs(N, fs, Td)
-
+        fs  =  MRPy.check_fs(N, fs, Td)
         return MRPy(np.zeros((NX,N)), fs)
 
 #-----------------------------------------------------------------------------
@@ -825,10 +827,10 @@ class MRPy(np.ndarray):
                     Td: processes duration (second)
         """
 
-        fs, Td   = MRPy.check_fs(N, fs, Td)
-        i0       = int(t0//fs)
-        X        = np.zeros((NX,N))
-        X[:,i0]  = 1.0
+        fs       =  MRPy.check_fs(N, fs, Td)
+        i0       =  int(t0//fs)
+        X        =  np.zeros((NX,N))
+        X[:,i0]  =  1.0
 
         return MRPy(X, fs)
 
@@ -845,7 +847,7 @@ class MRPy(np.ndarray):
                     Td: processes duration (second)
         """
 
-        fs, Td   = MRPy.check_fs(N, fs, Td)
+        fs       = MRPy.check_fs(N, fs, Td)
         i0       = int(t0*fs)
         X        = np.zeros((NX,N))
         X[:,i0:] = 1.0
@@ -865,7 +867,7 @@ class MRPy(np.ndarray):
                     band: band with nonzero power (in Hz)
         """
 
-        fs, Td  = MRPy.check_fs(N, fs, Td)
+        fs      = MRPy.check_fs(N, fs, Td)
         b0, b1  = MRPy.check_band(fs, band)
         
         M       = N//2 + 1
@@ -876,6 +878,8 @@ class MRPy(np.ndarray):
             
         Sx[:,:k0] = 0.
         Sx[:,k1:] = 0.
+        
+        Sx = Sx/np.trapz(Sx, dx=1./Td)
 
         return MRPy.from_periodogram(Sx, fs)
 
@@ -903,7 +907,9 @@ class MRPy(np.ndarray):
             
         Sx[:,:k0] = 0.
         Sx[:,k1:] = 0.
-
+        
+        Sx = Sx/np.trapz(Sx, dx=1./Td)
+ 
         return MRPy.from_periodogram(Sx, fs)
 
 #=============================================================================
@@ -1085,7 +1091,7 @@ class MRPy(np.ndarray):
     def printAttrib(self):
         
         s1 =  ' fs = {0:.1f}Hz\n Td = {1:.1f}s\n'
-        s2 =  ' NX = {0}\n N  = {1}\n M  = {2}'   
+        s2 =  ' NX = {0}\n N  = {1}\n M  = {2}\n'   
         
         print(s1.format(self.fs, self.Td))
         print(s2.format(self.NX, self.N, self.M))
@@ -1258,14 +1264,14 @@ class MRPy(np.ndarray):
         """
 
         if (form.lower() == 'mrpy'):
-
-            with gz.GzipFile(filename+'.gz', 'wb') as target:
+            with gz.GzipFile(filename+'.csv.gz', 'wb') as target:
                 pk.dump((self, self.fs), target)
 
         elif (form.lower() == 'excel'):
 
-            data  = pd.DataFrame(data  = self.T,
-                                 index = self.t_axis())
+            data  = pd.DataFrame(data    = self.T,
+                                 index   = self.t_axis(),
+                                 columns = np.arange(self.NX))
 
             excel = pd.ExcelWriter(filename+'.xlsx')
             data.to_excel(excel,'MRPy')
@@ -1284,31 +1290,35 @@ class MRPy(np.ndarray):
         """
         Resampling irregular time step to fixed time step. The last
         element of ti is taken as total series duration. Series length
-        is kept unchanged.
+        is kept unchanged. Returns a MRPy instance.
  
         Parameters:  ti:    irregular time where samples are avaible
                      Xi:    time series samples, taken at ti
         """
-
-        sh =  Xi.shape
         
+        sh =  Xi.shape
         if (len(sh) == 1): 
-            Xi = np.reshape(Xi,(1,sh[0]))
-			
+            Xi  = np.reshape(Xi,(1,sh[0]))
         elif (sh[0] > sh[1]):
             Xi = Xi.T
-
+            
         sh =  Xi.shape
         NX =  sh[0]
-        N  =  sh[1]                     # series length kept unchanged
+        N  =  sh[1]
+
+        if (N < 2):
+            sys.exit('Come on!!! Start with at least 2 elements!')
+        
+        tsh =  ti.shape
+        if (len(tsh) > 1): 
+            sys.exit('Time markers must be a 1D vector!')
 
         t0 =  ti[0]
         t1 =  ti[-1]
 
         fs =  N/(t1 - t0)               # average sampling rate
-        
-        t  =  np.linspace(t0, t1, N)
-        X  =  np.empty((NX,N))
+        t  =  np.linspace(t0, t1, N)    # regularly spaced time markers
+        X  =  np.empty((NX,N))          # interpolated series
         
         for k in range(NX):
             resX   =  interp1d(ti, Xi[k,:], kind='linear')
@@ -1320,24 +1330,22 @@ class MRPy(np.ndarray):
 
     def check_fs(N, fs, Td):
         """
-        Verifies if either fs or Td are given, and returns 
-        both properties verifyed
+        Verifies if either fs or Td are given, and returns both
+        properties verifyed. Observe that N is not verified to be
+        even, for this will be done later on one MRPy constructor 
+        is called. This means that Td may be eventually modified.
         """
-            
-        if (np.mod(N, 2) != 0):              # enforce N to be even
-            N   =  N - 1
 
-        if ((fs != None) & (Td == None)):    # if fs is available...
+        if ((fs is not None) & (Td is None)):    # if fs is available...
             pass
 
-        elif ((fs == None) & (Td != None)):  # if Td is available
+        elif ((fs is None) & (Td is not None)):  # if Td is available
             fs = N/Td
 
         else: 
             sys.exit('Either fs or Td must be specified!')
         
-        return fs, N/fs
-
+        return fs
 
 #-----------------------------------------------------------------------------
 
@@ -1346,10 +1354,10 @@ class MRPy(np.ndarray):
         Verifies if provided frequency band is consistent.
         """
         
-        if (band == None):
+        if (band is None):
             b0 = 0.
             b1 = fs/2
-        
+
         else:
             b0 = band[0]
             b1 = band[1]
