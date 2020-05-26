@@ -811,7 +811,7 @@ class MRPy(np.ndarray):
                     Td: processes duration (second)
         """
 
-        fs  =  MRPy.check_fs(N, fs, Td)
+        fs, Td = MRPy.check_fs(N, fs, Td)
         return MRPy(np.zeros((NX,N)), fs)
 
 #-----------------------------------------------------------------------------
@@ -827,10 +827,10 @@ class MRPy(np.ndarray):
                     Td: processes duration (second)
         """
 
-        fs       =  MRPy.check_fs(N, fs, Td)
-        i0       =  int(t0//fs)
-        X        =  np.zeros((NX,N))
-        X[:,i0]  =  1.0
+        fs, Td  =  MRPy.check_fs(N, fs, Td)
+        i0      =  int(t0//fs)
+        X       =  np.zeros((NX,N))
+        X[:,i0] =  1.0
 
         return MRPy(X, fs)
 
@@ -847,10 +847,40 @@ class MRPy(np.ndarray):
                     Td: processes duration (second)
         """
 
-        fs       = MRPy.check_fs(N, fs, Td)
+        fs, Td   = MRPy.check_fs(N, fs, Td)
         i0       = int(t0*fs)
         X        = np.zeros((NX,N))
         X[:,i0:] = 1.0
+
+        return MRPy(X, fs)
+
+#-----------------------------------------------------------------------------
+
+    def harmonic(NX=1, N=1024, fs=None, Td=None, f0=None, phi=None):
+        """
+        Creates an instance with harmonic functions with unity amplitude.
+        
+        Parameters: NX:   number of processes in the MRPy object.
+                    N:    length of each process.
+                    fs:   sampling frequency (in Hz), or alternatively
+                    Td:   processes duration (second)
+                    f0:   signal frequency (in Hz)
+                    phi:  signal phase (rad
+        """
+
+        fs, Td = MRPy.check_fs(N, fs, Td)        
+        X      = np.zeros((NX,N))
+        
+        if ~hasattr(f0,  "__len__"):
+            f0  = f0*np.ones(self.NX)
+    
+        if ~hasattr(phi, "__len__"):
+            phi = phi*np.ones(self.NX)
+
+        t  = np.linspace(0, Td, N)
+
+        for kX in range(NX):
+            X[kX,:] = np.sin(2*np.pi*f0[kX] + phi[kX])
 
         return MRPy(X, fs)
 
@@ -867,7 +897,7 @@ class MRPy(np.ndarray):
                     band: band with nonzero power (in Hz)
         """
 
-        fs      = MRPy.check_fs(N, fs, Td)
+        fs, Td  = MRPy.check_fs(N, fs, Td)
         b0, b1  = MRPy.check_band(fs, band)
         
         M       = N//2 + 1
@@ -946,9 +976,8 @@ class MRPy(np.ndarray):
 
         for kX in range(self.NX):
             
-            Sxk =  np.hstack((Sx[kX,:], Sx[kX,-2:0:-1]))
-            Cxk =  np.fft.ifft(Sxk)*fs/2
-            
+            Sxk      =  np.hstack((Sx[kX,:], Sx[kX,-2:0:-1]))
+            Cxk      =  np.fft.ifft(Sxk)*fs/2
             Cx[kX,:] =  np.real(Cxk[:self.M])
 
         return Cx, Tmax
@@ -1337,7 +1366,7 @@ class MRPy(np.ndarray):
         """
 
         if ((fs is not None) & (Td is None)):    # if fs is available...
-            pass
+            Td = N*fs
 
         elif ((fs is None) & (Td is not None)):  # if Td is available
             fs = N/Td
@@ -1345,7 +1374,7 @@ class MRPy(np.ndarray):
         else: 
             sys.exit('Either fs or Td must be specified!')
         
-        return fs
+        return fs, Td
 
 #-----------------------------------------------------------------------------
 
@@ -1450,9 +1479,8 @@ class MRPy(np.ndarray):
 
         for kX in range(NX):
             
-            Sxk =  np.hstack((Sx[kX,:], Sx[kX,-2:0:-1]))
-            Cxk =  np.fft.ifft(Sxk)*fs/2
-            
+            Sxk      =  np.hstack((Sx[kX,:], Sx[kX,-2:0:-1]))
+            Cxk      =  np.fft.ifft(Sxk)*fs/2
             Cx[kX,:] =  np.real(Cxk[:M])
 
         return Cx, Tmax
