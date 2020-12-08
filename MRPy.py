@@ -450,7 +450,7 @@ class MRPy(np.ndarray):
         X   =  self.double()
         f   =  X.f_axis()
         
-        b0, b1 = MRPy.check_band(self.fx, band)
+        b0, b1 = MRPy.check_band(self.f, band)
 
         for kX in range(X.NX):
             
